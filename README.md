@@ -7,6 +7,8 @@ run is saved with its own link, so you can reopen it at any time.
 It has no runtime dependencies and needs no changes to the project under test. It works alongside
 other reporting tools, such as Allure and ReportPortal.
 
+![Live Test Dashboard showing a finished run](docs/images/dashboard.png)
+
 ## How it works
 
 ```text
