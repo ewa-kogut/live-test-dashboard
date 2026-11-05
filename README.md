@@ -22,24 +22,23 @@ Your tests → JUnit listener → local server → page in your browser
 
 ## Requirements
 
-- Java 21, to build the jar and run the server.
+- Java 21, to run the server.
 - A test project that uses JUnit 5 and Maven Surefire. Other setups are untested.
 - Tests and server on the same computer, because the server listens on this computer only.
 
 No database or other software is needed. The commands below are for PowerShell on Windows.
 
-## Set up
+## Get the jar
 
-**1. Get the code**
+Download `live-test-dashboard.jar` from the
+[latest release](https://github.com/ewa-kogut/live-test-dashboard/releases/latest) and save it in any
+folder. You don't need to clone or build anything.
+
+**Or build it yourself**, if you want to change the code:
 
 ```powershell
 git clone https://github.com/ewa-kogut/live-test-dashboard.git
 cd live-test-dashboard
-```
-
-**2. Build the jar**
-
-```powershell
 .\mvnw -B package
 ```
 
@@ -63,11 +62,11 @@ did.
 **1. Start the server** in its own terminal, and leave the terminal open:
 
 ```powershell
-java -jar target\live-test-dashboard.jar
+java -jar C:\path\to\live-test-dashboard.jar
 ```
 
-To use another port, add it to the command, e.g. `java -jar target\live-test-dashboard.jar 9000`, and
-add `-Ddashboard.url=http://localhost:9000` to the test command. To stop the server, press `Ctrl+C`.
+To use another port, add it to the command, e.g. `java -jar C:\path\to\live-test-dashboard.jar 9000`,
+and add `-Ddashboard.url=http://localhost:9000` to the test command. To stop the server, press `Ctrl+C`.
 
 **2. Open** http://localhost:8095
 
@@ -85,7 +84,7 @@ This is an ordinary addition to your pipeline, not a Jenkins plugin. Jenkins mus
 computer as the server. The steps assume a Windows machine, and a Pipeline job that reads a `Jenkinsfile`
 from your repository.
 
-**1. Build the jar and start the server** as described above. The server must be running before the
+**1. Get the jar and start the server** as described above. The server must be running before the
 build starts. Jenkins only needs to be able to read the jar, so put it in a folder that the Jenkins
 service account can access.
 
