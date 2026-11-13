@@ -75,7 +75,7 @@ function applyEvent(event) {
       addTest(event.test);
       break;
     case 'test-started':
-      updateTest(event.id, { status: 'running', message: null });
+      updateTest(event.id, { status: 'running', message: null, location: null });
       break;
     case 'test-finished':
       finishTest(event);
@@ -110,6 +110,8 @@ function finishTest(event) {
     finishedAt: event.at,
     durationMs: event.durationMs,
     message: event.message,
+    // Runs saved before this field existed have no location.
+    location: event.location ?? null,
     passedOnRetry: isRetry && event.status === 'passed',
   });
 }
@@ -536,7 +538,8 @@ function renderTests() {
     const row = html('tr');
     const nameCell = html('td', '', test.name);
     if (test.message && test.status !== 'passed') {
-      nameCell.append(html('pre', 'failure', test.message));
+      const failureText = test.location ? `${test.message}\n    at ${test.location}` : test.message;
+      nameCell.append(html('pre', 'failure', failureText));
     }
     const result = html('span', 'result');
     result.append(
@@ -615,6 +618,8 @@ function setUpPaletteSwitch() {
 // ---------- Run history ----------
 
 const summaries = new Map();
+// Each run's file time when it was last read: a run is read again only after its file changed.
+const readAt = new Map();
 
 function summarize(id, eventsText) {
   // Reuses the same rules as the live view, so counts here and on a run's page always match.
@@ -680,13 +685,17 @@ function renderHistory(ids) {
 
 async function loadHistory() {
   try {
-    const ids = (await (await fetch('/api/runs')).json()).map((saved) => saved.id);
-    // A finished run never changes, so it only needs to be read once.
-    const pending = ids.filter((id) => summaries.get(id)?.state !== 'finished');
-    await Promise.all(pending.map(async (id) => {
+    const saved = await (await fetch('/api/runs')).json();
+    const ids = saved.map((savedRun) => savedRun.id);
+    // A finished run never changes. A run that was stopped never finishes, but its file stops
+    // changing, so it is not downloaded again every few seconds either.
+    const pending = saved.filter(({ id, updatedAt }) =>
+      summaries.get(id)?.state !== 'finished' && readAt.get(id) !== updatedAt);
+    await Promise.all(pending.map(async ({ id, updatedAt }) => {
       const response = await fetch(`/api/runs/${encodeURIComponent(id)}/events`);
       if (response.ok) {
         summaries.set(id, summarize(id, await response.text()));
+        readAt.set(id, updatedAt);
       }
     }));
     renderHistory(ids);

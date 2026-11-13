@@ -198,6 +198,8 @@ that starts with `Dashboard for this build:`. It works only on the computer that
 
 - **Dashboard not running:** the listener prints one line and stops sending. Tests are not affected.
 - **New run:** the *Latest run* page clears and follows it. The previous run stays in *Run history*.
+- **Failures:** each failed test shows the error message and the line in the test class where it
+  failed, e.g. `at CheckoutTests.shouldPlaceOrder(CheckoutTests.java:131)`.
 - **Run history:** every run has its own link, `/?run=<id>`. The newest 100 runs are kept, and older ones
   are deleted automatically.
 - **Page opened mid-run:** it first receives everything it missed.
@@ -210,7 +212,8 @@ that starts with `Dashboard for this build:`. It works only on the computer that
 ## Security
 
 The server listens on this computer only and has no login, because failure messages can contain test
-data. Saved runs contain those messages too, so do not publish the runs folder or expose the server on
+data. It also answers only requests addressed to `localhost`, `127.0.0.1` or `[::1]`, so a web page
+cannot reach it by pointing its own domain at this computer (DNS rebinding). Saved runs contain those messages too, so do not publish the runs folder or expose the server on
 a network.
 
 ## Accessibility

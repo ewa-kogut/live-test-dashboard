@@ -1,6 +1,7 @@
 package com.livedashboard;
 
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +18,9 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +42,8 @@ public final class DashboardServer {
   private static final String RUN_FILE_SUFFIX = ".jsonl";
   /** Run IDs become file names, so only these characters are allowed: no dots, no slashes. */
   private static final Pattern RUN_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
+
+  private static final Set<String> LOCAL_HOST_NAMES = Set.of("localhost", "127.0.0.1", "[::1]");
 
   private static final Pattern RUN_EVENTS_PATH = Pattern.compile("/api/runs/([^/]+)/events");
   private static final Map<String, StaticFile> STATIC_FILES =
@@ -71,10 +76,10 @@ public final class DashboardServer {
     latestRunId = savedRuns.isEmpty() ? null : runId(savedRuns.get(0));
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
     server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-    server.createContext("/api/events", this::handleEvent);
-    server.createContext("/api/stream", this::handleStream);
-    server.createContext("/api/runs", this::handleRuns);
-    server.createContext("/", this::handleStaticFile);
+    server.createContext("/api/events", localOnly(this::handleEvent));
+    server.createContext("/api/stream", localOnly(this::handleStream));
+    server.createContext("/api/runs", localOnly(this::handleRuns));
+    server.createContext("/", localOnly(this::handleStaticFile));
     heartbeat =
         Executors.newSingleThreadScheduledExecutor(
             task -> {
@@ -113,6 +118,34 @@ public final class DashboardServer {
       return Path.of(configured.trim());
     }
     return Path.of(System.getProperty("user.home"), ".live-test-dashboard", "runs");
+  }
+
+  /**
+   * Answers only requests addressed to this computer by name. Listening on 127.0.0.1 is not enough
+   * on its own: a web page can point its own domain at 127.0.0.1 (DNS rebinding) and then read the
+   * saved runs as if it were the dashboard. Such a request still carries that domain in its Host
+   * header, so it is refused here.
+   */
+  private static HttpHandler localOnly(HttpHandler handler) {
+    return exchange -> {
+      if (isLocalHost(exchange.getRequestHeaders().getFirst("Host"))) {
+        handler.handle(exchange);
+      } else {
+        try (exchange) {
+          respond(exchange, 403);
+        }
+      }
+    };
+  }
+
+  /** True for "localhost", "127.0.0.1" and "[::1]", with or without a port. */
+  static boolean isLocalHost(String host) {
+    if (host == null) {
+      return false;
+    }
+    String name =
+        host.startsWith("[") ? host.substring(0, host.indexOf(']') + 1) : host.split(":", 2)[0];
+    return LOCAL_HOST_NAMES.contains(name.toLowerCase(Locale.ROOT));
   }
 
   private void handleEvent(HttpExchange exchange) throws IOException {

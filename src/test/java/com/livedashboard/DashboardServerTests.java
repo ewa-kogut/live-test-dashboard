@@ -1,12 +1,14 @@
 package com.livedashboard;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -210,6 +212,48 @@ class DashboardServerTests {
     assertEquals(200, page.statusCode());
     assertTrue(page.body().contains("Live Test Dashboard"), "The page should name the tool");
     assertEquals(404, unknown.statusCode());
+  }
+
+  @Test
+  @DisplayName("Refuses requests for another host name, as sent after DNS rebinding")
+  void shouldRejectForeignHostHeader() throws Exception {
+    // Arrange
+    postEvent("run-1", "{}");
+
+    // Act
+    String foreign = statusLineFor("evil.example:" + server.port());
+    String local = statusLineFor("127.0.0.1:" + server.port());
+
+    // Assert
+    assertTrue(foreign.contains(" 403 "), "A foreign host should get 403, got: " + foreign);
+    assertTrue(local.contains(" 200 "), "127.0.0.1 should still work, got: " + local);
+  }
+
+  @Test
+  @DisplayName("Treats only this computer's names as local")
+  void shouldRecogniseLocalHostNames() {
+    // Arrange – the Host header values a browser or HttpClient sends
+
+    // Act and Assert
+    assertTrue(DashboardServer.isLocalHost("localhost:8095"));
+    assertTrue(DashboardServer.isLocalHost("LOCALHOST"));
+    assertTrue(DashboardServer.isLocalHost("127.0.0.1:8095"));
+    assertTrue(DashboardServer.isLocalHost("[::1]:8095"));
+    assertFalse(DashboardServer.isLocalHost("evil.example:8095"));
+    assertFalse(DashboardServer.isLocalHost("localhost.evil.example"));
+    assertFalse(DashboardServer.isLocalHost(null));
+  }
+
+  /** HttpClient does not allow setting Host, so this sends the request over a plain socket. */
+  private String statusLineFor(String host) throws IOException {
+    try (Socket socket = new Socket("127.0.0.1", server.port())) {
+      String request = "GET /api/runs HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
+      socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
+      socket.getOutputStream().flush();
+      return new BufferedReader(
+              new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII))
+          .readLine();
+    }
   }
 
   private HttpResponse<Void> postEvent(String runId, String json) throws Exception {
