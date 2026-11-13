@@ -1,5 +1,7 @@
 # Live Test Dashboard
 
+[![Build](https://github.com/ewa-kogut/live-test-dashboard/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/ewa-kogut/live-test-dashboard/actions/workflows/build.yml)
+
 Watch a JUnit 5 test run live in your browser: progress such as "12 of 24", passed and failed
 counts, a ring chart of the results, the time each test took, and each failure's error message. Every
 run is saved with its own link, so you can reopen it at any time.
@@ -228,6 +230,10 @@ setting, the chart can be read with the keyboard, and the test list holds the sa
 ```powershell
 .\mvnw -B test
 ```
+
+The unit tests cover the server and the listener; the page's JavaScript has no automated tests.
+GitHub Actions (`.github/workflows/build.yml`) builds the jar and runs the tests on every push to
+`main` and on every pull request into it. The badge at the top shows the latest result.
 
 ## License
 
